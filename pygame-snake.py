@@ -12,31 +12,24 @@ class Game():
         self.screen = screen
         self.fps = frames_per_second
         self.clock = pygame.time.Clock()
-        self.running = False
         self.snake = snake
         return None
 
     def run_game(self):
         # initially display the board
-        self.display_board()
-        self.running = True
-        while self.running:
+        self.is_running = True
+        while self.snake.is_alive and self.is_running:
+            self.display_board()
             did_move_happen = False
             self.clock.tick(self.fps)
             for event in pygame.event.get():
                 if not self.check_for_special_event(event) and event.type == pygame.KEYDOWN:
                     did_move_happen = self.snake.update_from_new_move(event.key)
-                    if did_move_happen:
-                        break  # this way only one move happens per click tick
+                    # if did_move_happen:
+                        # break  # this way only one move happens per click tick
             if not did_move_happen:
                 # no move was made, so input last event (i.e. keep the snake going in its current direction)
                 self.snake.update_from_new_move(self.snake.previous_move)
-
-            if self.snake.check_for_death():
-                # the snake is dead, long live the apple!
-                self.running = False
-            else:
-                self.display_board()
 
         # game is over, off with the snake and close the game
         self.snake.make_death_animation()
@@ -47,7 +40,7 @@ class Game():
         """ checks if the event is a non-key directional command (i.e. quit, pause, speed up/down, etc)
         returns True if special event, else returns False"""
         if event.type == pygame.QUIT:
-            self.running = False
+            self.is_running = False
             return True
         elif event.type == pygame.KEYDOWN:
             # check for pausing:
@@ -86,7 +79,7 @@ class Game():
             self.clock.tick(1)
             for event in pygame.event.get():
                 if event.type == pygame.QUIT:
-                    self.running = False
+                    self.is_running = False
                     return None
                 if event.type == pygame.KEYDOWN:
                     # check if the a speed up or speed down was requested (easy to do while paused)
@@ -120,6 +113,7 @@ class Snake():
         
         # Sets up the board
         self.initialize_board()
+        self.is_alive = True  # ahh, life : )
     
     def update_from_new_move(self, new_direction: str):
         """Returns False if move is invalid, otherwise Returns True"""
@@ -149,18 +143,21 @@ class Snake():
             self.head_location[0] += 1
         else:
             # the move is invalid
-            # print(f'{datetime.utcnow().strftime("%H:%M:%S.%f")[:-3]} {new_direction} is an invalid move')
             return False
         
         self.previous_move = new_direction
         
-        did_eat = self.check_for_growth()
-        self.update_body_locations(is_growing=did_eat)
-        if did_eat:
-            self.make_new_apple()
-        self.update_board_arr()
-    
-        # TODO: implement a score and update that?
+        if self.check_for_death():
+            # the snake is dead, long live the apple!
+            self.is_alive = False
+        else:
+            did_eat = self.check_for_growth()
+            self.update_body_locations(is_growing=did_eat)
+            if did_eat:
+                self.make_new_apple()
+            self.update_board_arr()
+
+        # TODO: implement a score and update it
         return True
     
     def update_body_locations(self, is_growing: bool):
@@ -188,7 +185,7 @@ class Snake():
         return None
     
     def update_board_arr(self):
-        # TODO: make this more efficient and not re-render the whole image each time.
+        # TODO: make this more efficient and not re-create the whole image each time.
         self.board = np.zeros([3, *self.board.shape[1:]], dtype=np.uint8)
         for body_location in self.body_locations:
             self.board[:, body_location[0], body_location[1]] = 255
@@ -198,8 +195,8 @@ class Snake():
 
     def prepare_board_for_displaying(self, wanted_size):
         return resize(np.moveaxis(self.board, 0, -1), output_shape=(wanted_size) + (3, ), 
-                      mode='constant', order=0,
-                      anti_aliasing=False, preserve_range=True).astype(np.uint8)
+                      mode='constant', order=1,
+                      anti_aliasing=True, preserve_range=True).astype(np.uint8)
     
     def make_new_apple(self):
         self.apple_location = [self.rng.randint(low=0, high=self.board.shape[0]),
@@ -244,7 +241,7 @@ class Snake():
 if __name__ == '__main__':        
     pygame.init()
     pygame.display.set_caption('Snake')
-    screen = pygame.display.set_mode((480,480))
+    screen = pygame.display.set_mode((800,800))
     
     snake = Snake(random_seed=100)
     game = Game(snake, screen)
