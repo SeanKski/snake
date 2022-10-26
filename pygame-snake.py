@@ -44,7 +44,7 @@ class Game():
             return True
         elif event.type == pygame.KEYDOWN:
             # check for pausing:
-            if event.key == pygame.K_p:
+            if event.key == pygame.K_p or event.key == pygame.K_SLASH:
                 self.pause_game()
                 return True                        
             # check if the a speed up or speed down was requested
@@ -195,8 +195,8 @@ class Snake():
 
     def prepare_board_for_displaying(self, wanted_size):
         return resize(np.moveaxis(self.board, 0, -1), output_shape=(wanted_size) + (3, ), 
-                      mode='constant', order=1,
-                      anti_aliasing=True, preserve_range=True).astype(np.uint8)
+                      mode='constant', order=0,
+                      anti_aliasing=False, preserve_range=True).astype(np.uint8)
     
     def make_new_apple(self):
         self.apple_location = [self.rng.randint(low=0, high=self.board.shape[0]),
@@ -241,7 +241,7 @@ class Snake():
 if __name__ == '__main__':        
     pygame.init()
     pygame.display.set_caption('Snake')
-    screen = pygame.display.set_mode((800,800))
+    screen = pygame.display.set_mode((480,480))
     
     snake = Snake(random_seed=100)
     game = Game(snake, screen)
