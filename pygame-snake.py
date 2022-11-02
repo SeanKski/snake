@@ -1,4 +1,6 @@
 from datetime import datetime
+from pathlib import Path
+import json
 
 import matplotlib.pyplot as plt
 import pygame
@@ -6,19 +8,31 @@ import numpy as np
 from skimage.transform import resize, rescale
 
 #TODO: Add comments, like everywhere :p  (future me will thank current me : )
+
+HEADER_HEIGHT_OFFSET = 50  # 50px
+
 class Game():
     
-    def __init__(self, snake, screen, frames_per_second=3) -> None:
+    def __init__(self, snake, screen, frames_per_second=3, record_dir=None) -> None:
         self.screen = screen
         self.fps = frames_per_second
         self.clock = pygame.time.Clock()
         self.snake = snake
+        if record_dir is None:
+            self.record_dir = None
+        else:
+            self.record_dir = Path(record_dir)
+            if not self.record_dir.exists():
+                self.record_dir.mkdir(parents=True)
+        self.high_score = self.get_current_highscore()
+        self.score = 0
         return None
 
     def run_game(self):
         # initially display the board
         self.is_running = True
         while self.snake.is_alive and self.is_running:
+            self.calculate_score()
             self.display_board()
             did_move_happen = False
             self.clock.tick(self.fps)
@@ -32,7 +46,8 @@ class Game():
                 self.snake.update_from_new_move(self.snake.previous_move)
 
         # game is over, off with the snake and close the game
-        self.snake.make_death_animation()
+        self.save_highscore()
+        self.make_death_animation()
         self.exit_game()
         return None
 
@@ -60,17 +75,37 @@ class Game():
         return False
 
     def display_board(self):
-        screen_size = self.screen.get_size()
-        board_to_display = self.snake.prepare_board_for_displaying(screen_size)
+        self.screen.fill((40, 40, 40)) # first reset the screen
+        screen_size = list(self.screen.get_size())
+        # subtracting the header height from the game screen to get the effective game screen size
+        game_screen_size = [screen_size[0], screen_size[1] - HEADER_HEIGHT_OFFSET]  
 
-        self.screen.fill((0, 0, 0)) # first reset the screen
+        # B to screen 
+        
+
+        # Render board
+        board_to_display = self.snake.prepare_board_for_displaying(game_screen_size)
         pygame_board = pygame.surfarray.make_surface(board_to_display)
-        self.screen.blit(pygame_board, (0,0))
+        self.screen.blit(pygame_board, (0,HEADER_HEIGHT_OFFSET))
+
+        # Render score
+        font = pygame.font.SysFont("Arial", size=int(HEADER_HEIGHT_OFFSET*0.75))
+        score_text = font.render(f"Score: {self.score}", True, (255, 255, 255))
+        score_location = (int(screen_size[0]*0.01), int(HEADER_HEIGHT_OFFSET*0.125))
+        self.screen.blit((score_text), score_location)
+
+        # Render high score
+        if self.high_score is not None:
+            high_score_text = font.render(f"High Score: {self.high_score}", True, (255, 255, 255))
+            score_location = (max(score_text.get_width(), screen_size[0]-high_score_text.get_width()),
+                              int(HEADER_HEIGHT_OFFSET*0.125))
+            self.screen.blit((high_score_text), score_location)
+
         pygame.display.update()
         return None
 
     def pause_game(self):
-        font = pygame.font.SysFont("serif", size=self.screen.get_size()[0]//8)
+        font = pygame.font.SysFont("Arial", size=self.screen.get_size()[0]//8)
         text_paused = font.render("PAUSED", True, (255, 0, 0))
         pause_location = ((self.screen.get_size()[0] // 7), self.screen.get_size()[1]//2)
         self.screen.blit((text_paused), pause_location)
@@ -95,9 +130,43 @@ class Game():
                         # remove the pause text
                         self.display_board()
                         return None
+
+    def get_current_highscore(self) -> int:
+        if self.record_dir is None:
+            return None
+        elif not (self.record_dir/'saves.json').exists():
+            return None
+        else:
+            # load saves            
+            with open(self.record_dir/'saves.json', 'r') as save_file:
+                high_score = json.load(save_file)['high_score']
+            return high_score
+
+    def save_highscore(self):
+        if self.record_dir is None:
+            return False
+        else:
+            # overwrite save file
+            with open(self.record_dir/'saves.json', 'w') as save_file:
+                json.dump(dict(high_score=self.high_score), save_file)
+            return True
+
+    def calculate_score(self):
+        self.score = len(self.snake.body_locations)+1
+        # Checking against high score
+        if self.high_score is None or self.score > self.high_score:
+            print(f'New high score! High score is now: {self.score}')
+            self.high_score = self.score
+        return None
+
+    def make_death_animation(self):
+        # TODO
+        return None
         
     def exit_game(self):
         print('DEAD!')
+        if self.score is not None:
+            print(f'Final score: {self.score}')
         # raise RuntimeError('the snake has stopped running (because it died)')
         pygame.QUIT
 
@@ -194,7 +263,7 @@ class Snake():
         return None
 
     def prepare_board_for_displaying(self, wanted_size):
-        return resize(np.moveaxis(self.board, 0, -1), output_shape=(wanted_size) + (3, ), 
+        return resize(np.moveaxis(self.board, 0, -1), output_shape=(wanted_size) + [3, ], 
                       mode='constant', order=0,
                       anti_aliasing=False, preserve_range=True).astype(np.uint8)
     
@@ -232,17 +301,15 @@ class Snake():
             return True
         else:
             return False
-    
-    def make_death_animation(self):
-        # TODO
-        return None
+
 
 
 if __name__ == '__main__':        
     pygame.init()
     pygame.display.set_caption('Snake')
-    screen = pygame.display.set_mode((480,480))
+    game_size = (512, 512)
+    screen = pygame.display.set_mode((game_size[0], game_size[1]+HEADER_HEIGHT_OFFSET))
     
     snake = Snake(random_seed=100)
-    game = Game(snake, screen)
+    game = Game(snake, screen, record_dir='./game_saves')
     game.run_game()
