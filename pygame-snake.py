@@ -1,19 +1,21 @@
 from datetime import datetime
 from pathlib import Path
 import json
+from typing import Union
 
 import matplotlib.pyplot as plt
 import pygame
 import numpy as np
 from skimage.transform import resize, rescale
 
+# todo list:
 #TODO: Add comments, like everywhere :p  (future me will thank current me : )
 
 HEADER_HEIGHT_OFFSET = 50  # 50px
 
 class Game():
     
-    def __init__(self, snake, screen, frames_per_second=3, record_dir=None) -> None:
+    def __init__(self, snake, screen, frames_per_second=4, record_dir=None) -> None:
         self.screen = screen
         self.fps = frames_per_second
         self.clock = pygame.time.Clock()
@@ -39,8 +41,8 @@ class Game():
             for event in pygame.event.get():
                 if not self.check_for_special_event(event) and event.type == pygame.KEYDOWN:
                     did_move_happen = self.snake.update_from_new_move(event.key)
-                    # if did_move_happen:
-                        # break  # this way only one move happens per click tick
+                    if did_move_happen:
+                        break  # this way only one move happens per click tick
             if not did_move_happen:
                 # no move was made, so input last event (i.e. keep the snake going in its current direction)
                 self.snake.update_from_new_move(self.snake.previous_move)
@@ -171,8 +173,10 @@ class Game():
         pygame.QUIT
 
 class Snake():
-    def __init__(self, board_size=(16, 16), random_seed=42):        
+    def __init__(self, board_size=(16, 16), random_seed=42, sprite_location='snake-sprites.png', sprite_size=(16,16)): 
         self.rng = np.random.RandomState(random_seed)
+        self.effective_board_size = board_size
+        self.sprites = self.get_sprites(sprite_location, sprite_size)
         self.board = np.zeros([3, *board_size], dtype=np.uint8)
         self.previous_head_location = None
         self.previous_move = None
@@ -183,36 +187,57 @@ class Snake():
         # Sets up the board
         self.initialize_board()
         self.is_alive = True  # ahh, life : )
+
+
+    def _convert_keypress_to_str(self, keypress_value):
+        if keypress_value == pygame.K_UP:
+            return 'up'
+            
+        elif keypress_value == pygame.K_DOWN:
+            return 'down'
+            
+        elif keypress_value == pygame.K_LEFT:
+            return 'left'
+            
+        elif keypress_value == pygame.K_RIGHT:            
+            return 'right'
+        else:
+            # the move is invalid
+            return None
     
-    def update_from_new_move(self, new_direction: str):
+    def update_from_new_move(self, new_direction: Union[str, int]):
         """Returns False if move is invalid, otherwise Returns True"""
         self.previous_head_location = self.head_location.copy()
-        if new_direction == pygame.K_UP:
-            if self.previous_move == pygame.K_DOWN:
+        if isinstance(new_direction, int):
+            # convert new_direction to a str \in {"down", "up", "left", "right"} or None if invalid
+            new_direction = self._convert_keypress_to_str(new_direction)
+
+        # Recording move
+        if new_direction is None:
+            return False  # move is invalid
+        if new_direction == 'up':
+            if self.previous_move == 'down':
                 print(f'You cannot go down since you just went up.')
                 return False
             self.head_location[1] -= 1
             
-        elif new_direction == pygame.K_DOWN:
-            if self.previous_move == pygame.K_UP:
+        elif new_direction == 'down':
+            if self.previous_move == 'up':
                     print(f'You cannot go down since you just went up.')
                     return False
             self.head_location[1] += 1
             
-        elif new_direction == pygame.K_LEFT:
-            if self.previous_move == pygame.K_RIGHT:
+        elif new_direction == 'left':
+            if self.previous_move == 'right':
                 print(f'You cannot go left since you just went right.')
                 return False
             self.head_location[0] -= 1
             
-        elif new_direction == pygame.K_RIGHT:            
-            if self.previous_move == pygame.K_LEFT:
+        elif new_direction == 'right':            
+            if self.previous_move == 'left':
                 print(f'You cannot go right since you just went left.')
                 return False
             self.head_location[0] += 1
-        else:
-            # the move is invalid
-            return False
         
         self.previous_move = new_direction
         
@@ -226,8 +251,8 @@ class Snake():
                 self.make_new_apple()
             self.update_board_arr()
 
-        # TODO: implement a score and update it
-        return True
+        # TODO: make check for win : )
+        return True  # returning True means valid move has been recorded
     
     def update_body_locations(self, is_growing: bool):
         """roll over body locations"""
@@ -248,36 +273,11 @@ class Snake():
             self.body_locations = [self.previous_head_location]
         return None
     
-    def initialize_board(self):
-        self.board[:, self.head_location[0], self.head_location[1]] = 255
-        self.board[0, self.apple_location[0], self.apple_location[1]] = 255
-        return None
-    
-    def update_board_arr(self):
-        # TODO: make this more efficient and not re-create the whole image each time.
-        self.board = np.zeros([3, *self.board.shape[1:]], dtype=np.uint8)
-        for body_location in self.body_locations:
-            self.board[:, body_location[0], body_location[1]] = 255
-        self.board[:, self.head_location[0], self.head_location[1]] = 255
-        self.board[0, self.apple_location[0], self.apple_location[1]] = 255
-        return None
-
-    def prepare_board_for_displaying(self, wanted_size):
-        return resize(np.moveaxis(self.board, 0, -1), output_shape=(wanted_size) + [3, ], 
-                      mode='constant', order=0,
-                      anti_aliasing=False, preserve_range=True).astype(np.uint8)
-    
     def make_new_apple(self):
-        self.apple_location = [self.rng.randint(low=0, high=self.board.shape[0]),
-                               self.rng.randint(low=0, high=self.board.shape[1])]
-        #TODO: make v this v more efficient############
-        for body_location in self.body_locations:
-            if self.apple_location == body_location:
-                # regenerate the apple so we don't cheat
-                self.make_new_apple()
-        if self.head_location == self.apple_location:
+        self.apple_location = [self.rng.randint(low=0, high=self.board.shape[-2]),
+                               self.rng.randint(low=0, high=self.board.shape[-1])]
+        while self.apple_location in self.body_locations + [self.head_location]:
             self.make_new_apple()
-        #TODO: make ^ this ^ more efficient############
         return None
         
     def check_for_death(self):
@@ -285,13 +285,11 @@ class Snake():
         for head_location, board_size in zip(self.head_location, self.board.shape[1:]):
             if head_location < 0 or head_location >= board_size:
                 # the snake's head has run into a wall (hopefully it has insurance)
-                return True 
-        # TODO: make this more efficient
-        for body_location in self.body_locations:
-            if self.head_location == body_location:
-                # the snake has run into itself (it's super effective)
                 return True
-        # if none of the above are True, then the snake is allowed to live
+        if self.head_location in self.body_locations:
+            # the snake has run into itself (it's super effective)
+            return True
+        # if none of the above are True, then the snake has lived to fight another frame
         return False
     
     def check_for_growth(self):
@@ -302,14 +300,169 @@ class Snake():
         else:
             return False
 
+    ## BOARD FUNCTIONS                
+    def initialize_board(self):
+        self.board[:, self.head_location[0], self.head_location[1]] = 255
+        self.board[0, self.apple_location[0], self.apple_location[1]] = 255
+        return None
+    
+    def update_board_arr(self):
+        # TODO: make this more efficient and not re-create the whole board array each time.
+        self.board = np.zeros([3, *self.board.shape[1:]], dtype=np.uint8)
+        for body_location in self.body_locations:
+            self.board[:, body_location[0], body_location[1]] = 255
+        self.board[:, self.head_location[0], self.head_location[1]] = 255
+        self.board[0, self.apple_location[0], self.apple_location[1]] = 255
+        return None
+
+    def prepare_board_for_displaying(self, wanted_size):
+        # return resize(np.moveaxis(self.board, 0, -1), output_shape=(wanted_size) + [3, ], 
+        #               mode='constant', order=0,
+        #               anti_aliasing=False, preserve_range=True).astype(np.uint8)
+        display_board  = np.zeros(wanted_size + [3,], dtype=np.uint8)
+        # Getting sprites for head
+        direction = self._check_body_direction(self.head_location, is_head=True)
+        head_type = self._check_body_type(self.head_location, is_head=True)
+        head_sprite = self.sprites[f'{head_type}-{direction}']
+        # getting apple sprite
+        apple_sprite = self.sprites['apple']
+        #getting body sprites
+        body_sprites = []
+        for body_location in self.body_locations:
+            direction = self._check_body_direction(body_location)
+            body_type = self._check_body_type(body_location)
+            body_sprites.append(self.sprites[f'{body_type}-{direction}'])
+        all_locations = [self.head_location] + [self.apple_location] + self.body_locations
+        all_sprites = [head_sprite] + [apple_sprite] + body_sprites
+
+        # Render the sprites onto the display board
+        # TODO: check if this can be made this more efficient?
+        for location, sprite in zip(all_locations, all_sprites):
+            display_board[location[0]*sprite.shape[0]:(location[0]+1)*sprite.shape[0],
+                          location[1]*sprite.shape[1]:(location[1]+1)*sprite.shape[1], ...] = sprite
+        
+        return display_board
+
+    def _check_body_direction(self, body_location, is_head=False) -> str:
+        """Determines the direction a specific body part is going, 
+        where `direction` \in {'up', 'right', 'down' left'}"""
+        if is_head:
+            # the head direction will be whatever direction the snake is moving, unless it is the first move
+            # in that case, default to up
+            return self.previous_move if self.previous_move is not None else 'up'
+        # If not head, a the direction of a body location is determined by the part that is next closest to head
+        body_idx = self.body_locations.index(body_location)
+        if body_idx == len(self.body_locations)-1:
+            # the reference body part (the part that is next closest to the head), is the head
+            reference_body_location = self.head_location
+        else:
+            reference_body_location = self.body_locations[body_idx + 1]
+        scaled_location_distance = (
+            (np.array(body_location) - np.array(reference_body_location)) * np.array([1, 2]) ).sum()
+        if scaled_location_distance > 0:
+            if scaled_location_distance == 2:     
+                direction = 'left'
+            else:  # scaled location distance == 1
+                direction = 'down'
+        else:
+            if scaled_location_distance == -2:
+                direction = 'right'
+            else:  # scaled location distance == -1
+                direction = 'up'
+        return direction
+
+
+    def _check_body_type(self, body_location, is_head=False) -> str:
+        """Determines the body type at the current `body_location`. 
+        Returns either: `head`, `body`, `tail`, or `unibody`."""
+        if is_head:
+            # TODO: add a unibody sprite which has a left, right, up, and down
+            # # Check if a body does not exist
+            # if len(self.body_locations) == 0:
+            #     return 'unibody'
+            # else:
+            #     return 'head'
+            return 'head'
+
+        # Check if body part is tail (which is at the beginning of the body array)
+        if body_location == self.body_locations[0]:
+            return 'tail'
+        else:
+            return 'body'
+
+    @staticmethod
+    def get_sprites(sprite_filepath, sprite_size) -> dict:
+        sprite_sheet = plt.imread(sprite_filepath)
+        sprites = [[(sprite_sheet[x_idx:x_idx+sprite_size[0], y_idx:y_idx+sprite_size[1], :3] * 255).astype(np.uint8)
+                        for y_idx in range(0, sprite_sheet.shape[1], sprite_size[1])]
+                            for x_idx in range(0, sprite_sheet.shape[0], sprite_size[0])]
+        sprites = sum(sprites, [])  # shape: (n_sprites, width, height)
+        sprite_dict = {
+            'head-up': sprites[3],
+            'head-right': sprites[2],
+            'head-down': sprites[1],
+            'head-left': sprites[0],
+            'body-up': sprites[4],
+            'body-down': sprites[4],
+            'body-left': sprites[5],
+            'body-right': sprites[5],
+            'tail-up': sprites[8],
+            'tail-right': sprites[7],
+            'tail-down': sprites[6],
+            'tail-left': sprites[9],
+            'apple': sprites[10]
+        }
+        return sprite_dict
+
+    def update_output_image(self, output_image, output_slice, xy_in_UID):
+        # Only update output image if current value is not 0  (i.e. is not empty)
+        if xy_in_UID != 0:
+            sprite = self.get_sprite_for_unit_id(xy_in_UID)
+            output_image[output_slice[0], output_slice[1]] = sprite
+        return output_image
+
+    def get_sprite_for_unit_id(self, unit_id):
+        if isinstance(unit_id, torch.Tensor):
+            unit_id = unit_id.item()
+        sprite_idx = UNIT_ID_TO_SPRITE_IDX[unit_id]
+        return SPRITES[sprite_idx]
+
+    def expand_and_sprite_image(self, input_image, output_image, w_out, h_out):
+        assert input_image.ndim == 2, 'Only 2d (i.e. grayscale) images are supported'
+        
+        w_in, h_in = input_image.shape[-2:]
+
+        w_scale = int(w_out / w_in)
+        h_scale = int(h_out / h_in)
+        assert w_scale>1 and h_scale>1, 'Only upscaling is supported.'
+
+        for y_out in range(0, h_out, h_scale):
+            for x_out in range(0, w_out, w_scale):
+                # Finding the coordinates relative to the input space
+                x_in = x_out // w_scale
+                y_in = y_out // h_scale
+
+                # finding slice of output pixel space which represents x_in, y_in
+                x_in_next = min(x_in+1, w_in)  # making sure we don't go beyond the output image
+                y_in_next = min(y_in+1, h_in)  # making sure we don't go beyond the output image
+                output_slice = [slice(x_out, (x_in_next*w_scale)),
+                                slice(y_out, (y_in_next*h_scale))]
+
+                # get sprite+color which corresponds to value_of_xy_in
+                output_image = self.update_output_image(output_image, output_slice)
+                
+        return output_image            
+
 
 
 if __name__ == '__main__':        
     pygame.init()
     pygame.display.set_caption('Snake')
     game_size = (512, 512)
+    board_size = (32, 32)
     screen = pygame.display.set_mode((game_size[0], game_size[1]+HEADER_HEIGHT_OFFSET))
     
-    snake = Snake(random_seed=100)
+    snake = Snake(board_size=board_size, sprite_size=(game_size[0]//board_size[0], game_size[1]//board_size[1]),
+                  random_seed=None,)
     game = Game(snake, screen, record_dir='./game_saves')
     game.run_game()
