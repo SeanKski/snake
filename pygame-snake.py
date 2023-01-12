@@ -128,7 +128,7 @@ class Game():
                             if self.fps > 1:
                                 self.fps -= 1
 
-                    elif event.key == pygame.K_r:
+                    elif event.key == pygame.K_r or event.key == pygame.K_SLASH:  # K_SLASH toggles pause
                         # remove the pause text
                         self.display_board()
                         return None
