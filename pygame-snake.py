@@ -180,7 +180,7 @@ class Game():
         if self.score is not None:
             print(f'Final score: {self.score}')
         # raise RuntimeError('the snake has stopped running (because it died)')
-        pygame.QUIT 
+        # pygame.QUIT  # uncomment to automatically close the game when the snake dies
 
 class Snake():
     def __init__(self, board_size=(16, 16), random_seed=42, sprite_location='snake-sprites.png', sprite_size=(16,16)): 
