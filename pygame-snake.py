@@ -33,7 +33,7 @@ class Game():
     def run_game(self):
         # initially display the board
         self.is_running = True
-        while self.snake.is_alive and self.is_running:
+        while self.is_running and self.snake.is_alive:
             self.calculate_score()
             self.display_board()
             did_move_happen = False
@@ -50,9 +50,24 @@ class Game():
 
         # game is over, off with the snake and close the game
         self.save_highscore()
-        self.make_death_animation()
-        self.exit_game()
+        print(f"Game over!")
+        if not self.snake.is_alive:
+            self.make_death_animation()
+            self.wait_for_user_to_quit()
+        else:
+            # the snake did not die, but the game was manually exited quit
+            self.exit_game()
         return None
+    
+    def wait_for_user_to_quit(self):
+        location = ((self.screen.get_size()[0] // 7), int(self.screen.get_size()[1]/1.25))
+        font_size = self.screen.get_size()[0]//20
+        self._print_str_to_screen("Press any key to quit", location=location, font_size=font_size, color=(255, 0, 0))
+        while True:
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT or  event.type == pygame.KEYDOWN:
+                    self.exit_game()
+                    return None
 
     def check_for_special_event(self, event) -> bool:
         """ checks if the event is a non-key directional command (i.e. quit, pause, speed up/down, etc)
@@ -109,8 +124,7 @@ class Game():
 
     def pause_game(self):
 
-        self._print_str_to_screen("PAUSED", color=(255, 0, 0), auto_size_location=True)        
-        pygame.display.update()
+        self._print_str_to_screen("PAUSED", color=(255, 0, 0))
         while True:
             self.clock.tick(1)
             for event in pygame.event.get():
@@ -132,15 +146,16 @@ class Game():
                         self.display_board()
                         return None
                     
-    def _print_str_to_screen(self, text, location=None, font_size=None, color=(255, 255, 255),
-                            auto_size_location=False):
-        if auto_size_location:
-            #TODO: make this work so it is exactly centered and the text takes up 2/3rds of the screen
-            font_size = self.screen.get_size()[0]//8
+    def _print_str_to_screen(self, text, location='auto', font_size='auto', color=(255, 255, 255)):
+        #TODO: make this work so that "auto" is exactly centered and the text takes up 2/3rds of the screen
+        if location == 'auto':
             location = ((self.screen.get_size()[0] // 7), self.screen.get_size()[1]//2)
+        if font_size == 'auto':    
+            font_size = self.screen.get_size()[0]//8
         font = pygame.font.SysFont("Arial", size=font_size)
         text = font.render(text, True, color)
         self.screen.blit((text), location)
+        pygame.display.update()
         return None
 
     def get_current_highscore(self) -> int:
@@ -172,7 +187,7 @@ class Game():
         return None
 
     def make_death_animation(self):
-        self._print_str_to_screen("DEAD!", color=(255, 0, 0), auto_size_location=True)
+        self._print_str_to_screen("DEAD!", color=(255, 0, 0))
         return None
         
     def exit_game(self):
@@ -180,7 +195,7 @@ class Game():
         if self.score is not None:
             print(f'Final score: {self.score}')
         # raise RuntimeError('the snake has stopped running (because it died)')
-        # pygame.QUIT  # uncomment to automatically close the game when the snake dies
+        pygame.quit()
 
 class Snake():
     def __init__(self, board_size=(16, 16), random_seed=42, sprite_location='snake-sprites.png', sprite_size=(16,16)): 
