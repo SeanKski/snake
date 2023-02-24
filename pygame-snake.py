@@ -42,7 +42,8 @@ class Game():
                 if not self.check_for_special_event(event) and event.type == pygame.KEYDOWN:
                     did_move_happen = self.snake.update_from_new_move(event.key)
                     if did_move_happen:
-                        break  # this way only one move happens per click tick
+                        # break  # this way only one move happens per click tick
+                        pass
             if not did_move_happen:
                 # no move was made, so input last event (i.e. keep the snake going in its current direction)
                 self.snake.update_from_new_move(self.snake.previous_move)
@@ -107,10 +108,8 @@ class Game():
         return None
 
     def pause_game(self):
-        font = pygame.font.SysFont("Arial", size=self.screen.get_size()[0]//8)
-        text_paused = font.render("PAUSED", True, (255, 0, 0))
-        pause_location = ((self.screen.get_size()[0] // 7), self.screen.get_size()[1]//2)
-        self.screen.blit((text_paused), pause_location)
+
+        self._print_str_to_screen("PAUSED", color=(255, 0, 0), auto_size_location=True)        
         pygame.display.update()
         while True:
             self.clock.tick(1)
@@ -132,6 +131,17 @@ class Game():
                         # remove the pause text
                         self.display_board()
                         return None
+                    
+    def _print_str_to_screen(self, text, location=None, font_size=None, color=(255, 255, 255),
+                            auto_size_location=False):
+        if auto_size_location:
+            #TODO: make this work so it is exactly centered and the text takes up 2/3rds of the screen
+            font_size = self.screen.get_size()[0]//8
+            location = ((self.screen.get_size()[0] // 7), self.screen.get_size()[1]//2)
+        font = pygame.font.SysFont("Arial", size=font_size)
+        text = font.render(text, True, color)
+        self.screen.blit((text), location)
+        return None
 
     def get_current_highscore(self) -> int:
         if self.record_dir is None:
@@ -162,7 +172,7 @@ class Game():
         return None
 
     def make_death_animation(self):
-        # TODO
+        self._print_str_to_screen("DEAD!", color=(255, 0, 0), auto_size_location=True)
         return None
         
     def exit_game(self):
@@ -170,7 +180,7 @@ class Game():
         if self.score is not None:
             print(f'Final score: {self.score}')
         # raise RuntimeError('the snake has stopped running (because it died)')
-        pygame.QUIT
+        pygame.QUIT 
 
 class Snake():
     def __init__(self, board_size=(16, 16), random_seed=42, sprite_location='snake-sprites.png', sprite_size=(16,16)): 
@@ -410,7 +420,7 @@ class Snake():
             'tail-right': sprites[7],
             'tail-down': sprites[6],
             'tail-left': sprites[9],
-            'apple': sprites[10]
+            'apple': sprites[10],
         }
         return sprite_dict
 
