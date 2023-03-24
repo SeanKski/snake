@@ -10,6 +10,7 @@ from skimage.transform import resize, rescale
 
 # todo list:
 #TODO: Add comments, like everywhere :p  (future me will thank current me : )
+#TODO: unify all event/keypress checking into one function and just return a string (e.g., convert_event_to_action(keypress) --> 'up' or 'pause')
 
 HEADER_HEIGHT_OFFSET = 50  # 50px
 
@@ -62,12 +63,14 @@ class Game():
     def wait_for_user_to_quit(self):
         location = ((self.screen.get_size()[0] // 7), int(self.screen.get_size()[1]/1.25))
         font_size = self.screen.get_size()[0]//20
-        self._print_str_to_screen("Press any key to quit", location=location, font_size=font_size, color=(255, 0, 0))
+        self._print_str_to_screen("Press Esc key to quit or Enter to restart", location=location, font_size=font_size, color=(255, 0, 0))
         while True:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT or  event.type == pygame.KEYDOWN:
+                if event.type == pygame.QUIT or  (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
                     self.exit_game()
-                    return None
+                if (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN):
+                    self.restart_game()
+                return None
 
     def check_for_special_event(self, event) -> bool:
         """ checks if the event is a non-key directional command (i.e. quit, pause, speed up/down, etc)
@@ -77,15 +80,15 @@ class Game():
             return True
         elif event.type == pygame.KEYDOWN:
             # check for pausing:
-            if event.key == pygame.K_p or event.key == pygame.K_SLASH:
+            if event.key in [pygame.K_p, pygame.K_SLASH, pygame.K_r]:
                 self.pause_game()
                 return True                        
             # check if the a speed up or speed down was requested
-            elif event.key == pygame.K_PERIOD:
+            elif event.key in [pygame.K_PERIOD, pygame.K_e]:
                 # speed up the game
                 self.fps += 1
                 return True
-            elif event.key == pygame.K_COMMA:
+            elif event.key in [pygame.K_COMMA, pygame.K_q]:
                 # slow down the game
                 if self.fps > 1:
                     self.fps -= 1
@@ -133,15 +136,15 @@ class Game():
                     return None
                 if event.type == pygame.KEYDOWN:
                     # check if the a speed up or speed down was requested (easy to do while paused)
-                    if event.key == pygame.K_PERIOD:
+                    if event.key in [pygame.K_PERIOD, pygame.K_e]:
                             # speed up the game
                             self.fps += 1
-                    elif event.key == pygame.K_COMMA:
+                    elif event.key in [pygame.K_COMMA, pygame.K_q]:
                             # slow down the game
                             if self.fps > 1:
                                 self.fps -= 1
 
-                    elif event.key == pygame.K_r or event.key == pygame.K_SLASH:  # K_SLASH toggles pause
+                    elif event.key in [pygame.K_r, pygame.K_SLASH]:  # K_SLASH toggles pause
                         # remove the pause text
                         self.display_board()
                         return None
@@ -197,6 +200,11 @@ class Game():
         # raise RuntimeError('the snake has stopped running (because it died)')
         pygame.quit()
 
+    def restart_game(self):
+        print('Starting new game!')
+        start_game()  # then start a new game
+        return None
+
 class Snake():
     def __init__(self, board_size=(16, 16), random_seed=42, sprite_location='snake-sprites.png', sprite_size=(16,16)): 
         self.rng = np.random.RandomState(random_seed)
@@ -215,16 +223,16 @@ class Snake():
 
 
     def _convert_keypress_to_str(self, keypress_value):
-        if keypress_value == pygame.K_UP:
+        if keypress_value in [pygame.K_UP, pygame.K_w]:
             return 'up'
             
-        elif keypress_value == pygame.K_DOWN:
+        elif keypress_value in [pygame.K_DOWN, pygame.K_s]:
             return 'down'
             
-        elif keypress_value == pygame.K_LEFT:
+        elif keypress_value in [pygame.K_LEFT, pygame.K_a]:
             return 'left'
             
-        elif keypress_value == pygame.K_RIGHT:            
+        elif keypress_value in [pygame.K_RIGHT, pygame.K_d]:            
             return 'right'
         else:
             # the move is invalid
@@ -476,13 +484,9 @@ class Snake():
                 # get sprite+color which corresponds to value_of_xy_in
                 output_image = self.update_output_image(output_image, output_slice)
                 
-        return output_image            
+        return output_image
 
-
-
-if __name__ == '__main__':        
-    pygame.init()
-    pygame.display.set_caption('Snake')
+def start_game():
     game_size = (512, 512)
     board_size = (32, 32)
     screen = pygame.display.set_mode((game_size[0], game_size[1]+HEADER_HEIGHT_OFFSET))
@@ -490,4 +494,12 @@ if __name__ == '__main__':
     snake = Snake(board_size=board_size, sprite_size=(game_size[0]//board_size[0], game_size[1]//board_size[1]),
                   random_seed=None,)
     game = Game(snake, screen, record_dir='./game_saves')
-    game.run_game()
+    game.run_game()           
+
+
+
+if __name__ == '__main__':      
+    pygame.init()
+    pygame.display.set_caption('Snake')  
+    start_game()
+    
