@@ -64,13 +64,23 @@ class Game():
         location = ((self.screen.get_size()[0] // 7), int(self.screen.get_size()[1]/1.25))
         font_size = self.screen.get_size()[0]//20
         self._print_str_to_screen("Press Esc key to quit or Enter to restart", location=location, font_size=font_size, color=(255, 0, 0))
-        while True:
+        action = None
+        while action is None:
             for event in pygame.event.get():
-                if event.type == pygame.QUIT or  (event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE):
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_ESCAPE:
+                        action = 'quit'
+                    elif event.key ==  pygame.K_RETURN:
+                        action = 'restart'
+                elif event.type == pygame.QUIT:
+                    action = 'quit'
+
+                if action == 'quit':
+                    print(f'Action happened! {action}')
                     self.exit_game()
-                if (event.type == pygame.KEYDOWN and event.key == pygame.K_RETURN):
+                elif action == 'restart':
+                    print(f'Action happened! {action}')
                     self.restart_game()
-                return None
 
     def check_for_special_event(self, event) -> bool:
         """ checks if the event is a non-key directional command (i.e. quit, pause, speed up/down, etc)
