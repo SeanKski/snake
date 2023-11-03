@@ -90,7 +90,7 @@ class Game():
             return True
         elif event.type == pygame.KEYDOWN:
             # check for pausing:
-            if event.key in [pygame.K_p, pygame.K_SLASH, pygame.K_r]:
+            if event.key in [pygame.K_p, pygame.K_SLASH, pygame.K_r, pygame.K_SPACE]:
                 self.pause_game()
                 return True                        
             # check if the a speed up or speed down was requested
@@ -154,7 +154,7 @@ class Game():
                             if self.fps > 1:
                                 self.fps -= 1
 
-                    elif event.key in [pygame.K_r, pygame.K_SLASH]:  # K_SLASH toggles pause
+                    elif event.key in [pygame.K_r, pygame.K_SLASH, pygame.K_SPACE]:  # K_SLASH toggles pause
                         # remove the pause text
                         self.display_board()
                         return None
